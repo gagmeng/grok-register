@@ -165,9 +165,19 @@ def stop_browser():
 
 
 def restart_browser():
-    # 用户要求不要长期复用同一浏览器，因此每轮结束都重启整个实例。
-    stop_browser()
-    start_browser()
+    # 清除 cookie/storage 代替完整重启，节省 Chrome 冷启动时间。
+    global browser, page
+    if browser is None:
+        start_browser()
+        return
+    try:
+        tabs = browser.get_tabs()
+        page = tabs[-1] if tabs else browser.new_tab()
+        page.run_js("window.localStorage.clear(); window.sessionStorage.clear();")
+        page.clear_cache(session_storage=True, cookies=True)
+    except Exception:
+        stop_browser()
+        start_browser()
 
 
 def refresh_active_page():
@@ -375,7 +385,7 @@ return true;
 
 
 
-def fill_code_and_submit(email, dev_token, timeout=180):
+def fill_code_and_submit(email, dev_token, timeout=60):
     # 复用 `email_register.py` 里的验证码轮询逻辑，等待邮件到达后自动填写 OTP。
     code = get_oai_code(dev_token, email)
     if not code:
@@ -692,7 +702,7 @@ def build_profile():
     return given_name, family_name, password
 
 
-def fill_profile_and_submit(timeout=120):
+def fill_profile_and_submit(timeout=30):
     # 在验证码通过后，直接锁定“可见且可写”的真实输入框，避免命中隐藏节点或 React 受控副本。
     given_name, family_name, password = build_profile()
     deadline = time.time() + timeout
@@ -999,7 +1009,7 @@ return matches.slice(0, 30);
     raise Exception("登录后未提取到可见数字文本")
 
 
-def wait_for_sso_cookie(timeout=120):
+def wait_for_sso_cookie(timeout=30):
     # 必须在注册完成后再取 sso，优先抓取精确的 sso cookie。
     deadline = time.time() + timeout
     last_seen_names = set()

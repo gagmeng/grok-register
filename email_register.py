@@ -52,7 +52,7 @@ def get_email_and_token() -> Tuple[Optional[str], Optional[str]]:
     return None, None
 
 
-def get_oai_code(dev_token: str, email: str, timeout: int = 120) -> Optional[str]:
+def get_oai_code(dev_token: str, email: str, timeout: int = 30) -> Optional[str]:
     """
     轮询 DuckMail 获取 OTP 验证码。
     供 DrissionPage_example.py 调用。
