@@ -1,4 +1,4 @@
-# Grok 账号批量注册工具
+﻿# Grok 账号批量注册工具
 
 基于 [DrissionPage](https://github.com/g1879/DrissionPage) 的 Grok (x.ai) 账号自动注册脚本，使用 [DuckMail](https://duckmail.sbs) 临时邮箱接收验证码，通过 Chrome 扩展修复 CDP `MouseEvent.screenX/screenY` 缺陷绕过 Cloudflare Turnstile。
 
@@ -11,6 +11,7 @@
 - 无头服务器支持（Xvfb 虚拟显示器，自动检测 Linux 环境）
 - 中英文界面自动适配
 - 自动推送 SSO token 到 grok2api（支持 append 合并模式）
+- **Web 管理控制台**（Flask 服务，实时日志、任务控制、配置编辑、SSO 管理）
 
 ---
 
@@ -90,6 +91,24 @@ cp config.example.json config.json
 
 ## 启动方式
 
+### 方式一：Web 管理控制台（推荐）
+
+```bash
+python web_server.py
+```
+
+启动后访问 `http://localhost:7860`，通过网页界面完成所有操作：
+
+- **任务控制**：设置注册轮数，一键启动/停止
+- **实时日志**：SSE 流式推送，即时显示注册进度
+- **基础配置**：在线编辑 `config.json`，保存即生效
+- **SSO Token**：查看本轮收集的 token，手动推送到 grok2api
+- **SSO 文件**：浏览并查看历史 `sso/*.txt` 文件内容
+- **历史日志**：查看历史 `logs/*.log` 运行记录
+- **测试连接**：一键检测 grok2api 服务连通性
+
+### 方式二：命令行直接运行
+
 ```bash
 # 按 config.json 中 run.count 执行（默认 10 轮）
 python DrissionPage_example.py
@@ -105,6 +124,28 @@ python DrissionPage_example.py --count 0
 
 ---
 
+## Web 管理控制台 API
+
+`web_server.py` 提供以下 REST API，可供外部程序调用：
+
+| 路由 | 方法 | 说明 |
+|------|------|------|
+| `/api/status` | GET | 获取任务状态（运行中/空闲/停止中）|
+| `/api/start` | POST | 启动注册任务，参数：`{"count": N, "extract_numbers": bool}` |
+| `/api/stop` | POST | 停止当前任务 |
+| `/api/config` | GET | 读取 config.json |
+| `/api/config` | POST | 保存 config.json |
+| `/api/sso` | GET | 获取本次收集的 SSO token 列表 |
+| `/api/sso/push` | POST | 手动推送 token 到 grok2api |
+| `/api/sso/files` | GET | 列出 `sso/` 目录下的文件 |
+| `/api/sso/files/<name>` | GET | 读取指定 SSO 文件内容 |
+| `/api/logs` | GET | 列出 `logs/` 目录下的日志文件 |
+| `/api/log/files/<name>` | GET | 读取指定日志文件内容 |
+| `/api/log/stream` | GET | SSE 实时日志流 |
+| `/api/ping` | POST | 测试 grok2api 连通性 |
+
+---
+
 ## 输出文件
 
 ```
@@ -112,6 +153,7 @@ sso/
   sso_<timestamp>.txt     ← 每行一个 SSO token
 logs/
   run_<timestamp>.log     ← 每轮注册的邮箱、密码和结果
+  web.log                 ← Web 服务运行日志
 ```
 
 目录在首次运行时自动创建。
@@ -121,11 +163,14 @@ logs/
 ## 文件结构
 
 ```
-├── DrissionPage_example.py     # 主脚本
+├── DrissionPage_example.py     # 注册主脚本
+├── web_server.py               # Web 管理控制台后端（Flask）
 ├── email_register.py           # DuckMail 临时邮箱封装
 ├── config.json                 # 配置文件（不入库）
 ├── config.example.json         # 配置模板
 ├── requirements.txt            # Python 依赖
+├── templates/
+│   └── index.html              # Web 控制台前端页面
 ├── turnstilePatch/             # Chrome 扩展（Turnstile patch）
 │   ├── manifest.json
 │   └── script.js
@@ -140,6 +185,7 @@ logs/
 - snap 版 chromium 在 root 下有 AppArmor 限制，推荐用 playwright 安装的 chromium
 - 服务器直连 x.ai 可能被墙，需在 `browser_proxy` 填写代理地址
 - 脚本自动检测 Linux 环境并启用 Xvfb + playwright chromium 路径
+- Web 控制台默认监听 `0.0.0.0:7860`，可通过防火墙限制外部访问
 
 ---
 

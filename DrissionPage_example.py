@@ -9,6 +9,13 @@ import time
 import os
 import secrets
 import sys
+import io
+
+# 强制 stdout/stderr 使用 utf-8，避免 Windows 下中文乱码（模块级 print 也生效）
+if hasattr(sys.stdout, 'buffer'):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+if hasattr(sys.stderr, 'buffer'):
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace', line_buffering=True)
 
 from email_register import get_email_and_token, get_oai_code
 
@@ -27,7 +34,9 @@ def setup_run_logger() -> logging.Logger:
     fh = logging.FileHandler(log_path, encoding="utf-8")
     fh.setFormatter(fmt)
     logger.addHandler(fh)
-    sh = logging.StreamHandler(sys.stdout)
+    import io
+    utf8_stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True)
+    sh = logging.StreamHandler(utf8_stdout)
     sh.setFormatter(fmt)
     logger.addHandler(sh)
 
@@ -1112,7 +1121,10 @@ def push_sso_to_api(new_tokens: list):
             else:
                 print(f"[Warn] 查询线上 token 失败: HTTP {get_resp.status_code}，仅推送本次 token")
         except Exception as e:
-            print(f"[Warn] 查询线上 token 异常: {e}，仅推送本次 token")
+            host = endpoint.split('/')[2] if endpoint.count('/') >= 2 else endpoint
+            print(f"[Warn] 无法连接到 {host}，请确认 grok2api 服务正在运行。")
+            print(f"[Warn] 跳过推送（{type(e).__name__}），SSO 已保存到本地文件。")
+            return
 
     try:
         resp = requests.post(
@@ -1127,7 +1139,8 @@ def push_sso_to_api(new_tokens: list):
         else:
             print(f"[Warn] 推送 API 返回异常: HTTP {resp.status_code} {resp.text[:200]}")
     except Exception as e:
-        print(f"[Warn] 推送 API 失败: {e}")
+        host = endpoint.split('/')[2] if endpoint.count('/') >= 2 else endpoint
+        print(f"[Warn] 推送 API 失败，请确认 {host} 服务正在运行: {type(e).__name__}")
 
 
 def run_single_registration(output_path=DEFAULT_SSO_FILE, extract_numbers=False):

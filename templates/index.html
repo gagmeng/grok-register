@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grok Register 管理控制台</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:#1a1d27;border-bottom:1px solid #2d3148;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;flex-shrink:0}
+.topbar h1{font-size:18px;font-weight:700;color:#a78bfa;letter-spacing:.5px}
+.topbar h1 span{color:#e2e8f0;font-weight:400}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600}
+.badge.idle{background:#1e293b;color:#94a3b8}
+.badge.running{background:#14532d;color:#4ade80;animation:pulse 1.5s infinite}
+.badge.stopping{background:#431407;color:#fb923c}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.layout{display:flex;flex:1;min-height:0;overflow:hidden}
+.sidebar{width:300px;min-width:260px;max-width:340px;background:#13151f;border-right:1px solid #1e2235;display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.card{background:#1a1d27;border:1px solid #1e2235;border-radius:10px;padding:16px;margin:12px 12px 0}
+.card:last-child{margin-bottom:12px}
+.card-title{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-box{background:#0f1117;border-radius:8px;padding:10px 12px}
+.stat-label{font-size:10px;color:#475569;margin-bottom:2px}
+.stat-value{font-size:20px;font-weight:700;color:#a78bfa}
+.progress-bar{height:4px;background:#1e2235;border-radius:2px;margin-top:10px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,#7c3aed,#a78bfa);border-radius:2px;transition:width .4s ease}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary{background:#7c3aed;color:#fff}
+.btn-primary:hover:not(:disabled){background:#6d28d9}
+.btn-danger{background:#991b1b;color:#fff}
+.btn-danger:hover:not(:disabled){background:#7f1d1d}
+.btn-success{background:#166534;color:#4ade80}
+.btn-success:hover:not(:disabled){background:#14532d}
+.btn-neutral{background:#1e2235;color:#94a3b8;border:1px solid #2d3148}
+.btn-neutral:hover:not(:disabled){background:#2d3148}
+.btn-sm{padding:5px 10px;font-size:12px;border-radius:6px}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:11px;color:#64748b;margin-bottom:4px;font-weight:600}
+.field input,.field select{width:100%;background:#0f1117;border:1px solid #2d3148;border-radius:6px;color:#e2e8f0;padding:7px 10px;font-size:13px;outline:none;transition:border .15s}
+.field input:focus,.field select:focus{border-color:#7c3aed}
+.field select option{background:#1a1d27}
+tabs-bar{display:flex;border-bottom:1px solid #1e2235;background:#13151f;flex-shrink:0}
+.tabs-bar{display:flex;border-bottom:1px solid #1e2235;background:#13151f;flex-shrink:0}
+.tab{padding:10px 18px;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.tab.active{color:#a78bfa;border-bottom-color:#a78bfa}
+.tab:hover:not(.active){color:#94a3b8}
+.tab-panel{display:none;flex-direction:column}
+.tab-panel.active{display:flex}
+.log-area{flex:1;overflow-y:auto;padding:12px 16px;font-family:'Consolas','Courier New',monospace;font-size:12px;line-height:1.6;background:#0a0c13;min-height:0}
+.log-line{padding:1px 0;white-space:pre-wrap;word-break:break-all}
+.log-line.err{color:#f87171}
+.log-line.warn{color:#fbbf24}
+.log-line.ok{color:#4ade80}
+.log-line.info{color:#60a5fa}
+.log-line.dim{color:#475569}
+.log-toolbar{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid #1e2235;flex-shrink:0;flex-wrap:wrap}
+.sso-toolbar{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid #1e2235;flex-shrink:0;flex-wrap:wrap}
+.sso-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #0f1117;gap:8px}
+.sso-item:hover{background:#1e2235}
+.sso-token{font-family:monospace;font-size:11px;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.sso-copy{flex-shrink:0;background:#1e2235;border:1px solid #2d3148;color:#94a3b8;border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer}
+.sso-copy:hover{background:#2d3148;color:#e2e8f0}
+.file-item{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #0f1117}
+.file-item:hover{background:#1e2235}
+.file-name{font-size:13px;color:#c4b5fd;font-weight:600}
+.file-meta{font-size:11px;color:#475569;margin-top:2px}
+.toast{position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none;z-index:9999}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.ok{background:#166534;color:#4ade80}
+.toast.err{background:#991b1b;color:#fca5a5}
+.checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;color:#94a3b8}
+.checkbox-row input[type=checkbox]{width:15px;height:15px;accent-color:#7c3aed}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>Grok <span>Register</span> 管理控制台</h1>
+  <span id="statusBadge" class="badge idle">&#9899; 空闲</span>
+</div>
+<div class="layout">
+  <!-- 左侧边栏 -->
+  <div class="sidebar">
+    <!-- 统计卡片 -->
+    <div class="card">
+      <div class="card-title">运行状态</div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="stat-label">进度</div><div class="stat-value" id="statRound">0/0</div></div>
+        <div class="stat-box"><div class="stat-label">成功</div><div class="stat-value" style="color:#4ade80" id="statOk">0</div></div>
+        <div class="stat-box"><div class="stat-label">失败</div><div class="stat-value" style="color:#f87171" id="statFail">0</div></div>
+        <div class="stat-box"><div class="stat-label">SSO</div><div class="stat-value" style="color:#60a5fa" id="statSso">0</div></div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    </div>
+    <!-- 启动控制 -->
+    <div class="card">
+      <div class="card-title">任务控制</div>
+      <div class="field"><label>注册轮数</label><input type="number" id="countInput" value="10" min="1" max="9999"></div>
+      <div class="checkbox-row" style="margin-bottom:10px">
+        <input type="checkbox" id="extractNumbers">
+        <label for="extractNumbers">注册后提取页面数字 (--extract-numbers)</label>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" id="btnStart" onclick="startTask()">&#9654; 开始</button>
+        <button class="btn btn-danger" id="btnStop" onclick="stopTask()" disabled>&#9632; 停止</button>
+      </div>
+    </div>
+    <!-- 配置面板 -->
+    <div class="card">
+      <div class="card-title">基础配置</div>
+      <div class="field"><label>DuckMail Bearer Token</label><input type="password" id="cfg_bearer" placeholder="dk_xxxxxxx"></div>
+      <div class="field"><label>DuckMail API Base</label><input type="text" id="cfg_api_base" placeholder="https://api.duckmail.sbs"></div>
+      <div class="field"><label>请求代理 (proxy)</label><input type="text" id="cfg_proxy" placeholder="http://127.0.0.1:7890"></div>
+      <div class="field"><label>浏览器代理 (browser_proxy)</label><input type="text" id="cfg_browser_proxy" placeholder="http://127.0.0.1:7890"></div>
+      <div class="field"><label>默认轮数 (run.count)</label><input type="number" id="cfg_run_count" value="10" min="0"></div>
+      <div class="card-title" style="margin-top:8px">grok2api 推送配置</div>
+      <div class="field"><label>API Endpoint</label><input type="text" id="cfg_api_endpoint" placeholder="http://127.0.0.1:8000/v1/admin/tokens"></div>
+      <div class="field"><label>API Token</label><input type="password" id="cfg_api_token" placeholder="app_key"></div>
+      <div class="field"><label>推送模式</label>
+        <select id="cfg_api_append">
+          <option value="true">append — 合并线上已有 token</option>
+          <option value="false">overwrite — 覆盖全量推送</option>
+        </select>
+      </div>
+      <div class="btn-group" style="margin-top:4px">
+        <button class="btn btn-primary" style="flex:1" onclick="saveConfig()">保存配置</button>
+        <button class="btn btn-neutral" style="flex:1" onclick="pingApi()">测试连接</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 主内容区 -->
+  <div class="main">
+    <div class="tabs-bar">
+      <div class="tab active" onclick="switchTab('tabLog',this)">实时日志</div>
+      <div class="tab" onclick="switchTab('tabTokens',this)">SSO Token</div>
+      <div class="tab" onclick="switchTab('tabFiles',this)">SSO 文件</div>
+      <div class="tab" onclick="switchTab('tabLogView',this)">历史日志</div>
+    </div>
+    <!-- 实时日志 -->
+    <div id="tabLog" class="tab-panel active" style="flex:1;min-height:0">
+      <div class="log-toolbar">
+        <span id="logCount" style="font-size:12px;color:#64748b">0 行</span>
+        <label class="checkbox-row"><input type="checkbox" id="autoScroll" checked> 自动滚动</label>
+        <button class="btn btn-sm btn-neutral" onclick="clearLog()">清空</button>
+      </div>
+      <div id="logArea" class="log-area"></div>
+    </div>
+    <!-- SSO Token 列表 -->
+    <div id="tabTokens" class="tab-panel" style="flex:1;min-height:0;overflow:hidden">
+      <div class="sso-toolbar">
+        <span id="ssoCount" style="font-size:12px;color:#64748b">共 0 个</span>
+        <button class="btn btn-sm btn-neutral" onclick="refreshSso()">刷新</button>
+        <button class="btn btn-sm btn-neutral" onclick="copyAllTokens()">复制全部</button>
+        <button class="btn btn-success btn-sm" onclick="pushTokens()">推送到 API</button>
+      </div>
+      <div id="ssoList" style="flex:1;overflow-y:auto;padding:0 0 16px"></div>
+    </div>
+    <!-- SSO 文件列表 -->
+    <div id="tabFiles" class="tab-panel" style="flex:1;min-height:0;overflow:hidden;flex-direction:column">
+      <div class="sso-toolbar">
+        <span style="font-size:12px;color:#64748b">SSO 输出文件</span>
+        <button class="btn btn-sm btn-neutral" onclick="refreshFiles()">刷新</button>
+      </div>
+      <div id="fileList" style="flex:1;overflow-y:auto;padding:0 0 16px"></div>
+      <div id="fileContent" style="display:none;flex-direction:column;flex:1;min-height:0">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid #1e2235">
+          <button class="btn btn-sm btn-neutral" onclick="closeFile()">&larr; 返回</button>
+          <span id="fileContentName" style="font-size:12px;color:#a78bfa"></span>
+          <button class="btn btn-sm btn-neutral" style="margin-left:auto" onclick="copyFileContent()">复制</button>
+        </div>
+        <pre id="fileContentPre" style="flex:1;overflow-y:auto;padding:16px;font-family:monospace;font-size:12px;color:#c4b5fd;white-space:pre-wrap;word-break:break-all;background:#0a0c13;margin:0"></pre>
+      </div>
+    </div>
+    <!-- 历史日志文件 -->
+    <div id="tabLogView" class="tab-panel" style="flex:1;min-height:0;overflow:hidden;flex-direction:column">
+      <div class="sso-toolbar">
+        <span style="font-size:12px;color:#64748b">历史运行日志文件</span>
+        <button class="btn btn-sm btn-neutral" onclick="refreshLogFiles()">刷新</button>
+      </div>
+      <div id="logFileList" style="flex:1;overflow-y:auto;padding:0 0 16px"></div>
+      <div id="logFileContent" style="display:none;flex-direction:column;flex:1;min-height:0">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid #1e2235">
+          <button class="btn btn-sm btn-neutral" onclick="closeLogFile()">&larr; 返回</button>
+          <span id="logFileContentName" style="font-size:12px;color:#a78bfa"></span>
+          <button class="btn btn-sm btn-neutral" style="margin-left:auto" onclick="copyLogContent()">复制</button>
+        </div>
+        <pre id="logFileContentPre" style="flex:1;overflow-y:auto;padding:16px;font-family:monospace;font-size:12px;color:#94a3b8;white-space:pre-wrap;word-break:break-all;background:#0a0c13;margin:0"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+<script>
+// ── 全局状态 ──
+let _sseSource = null;
+let _logLines = 0;
+let _currentStatus = 'idle';
+
+// ── Toast 提示 ──
+function toast(msg, type='ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast ' + type + ' show';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ── 标签页切换 ──
+function switchTab(id, el) {
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.remove('active');
+    p.style.display = 'none';
+  });
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const panel = document.getElementById(id);
+  panel.classList.add('active');
+  panel.style.display = 'flex';
+  el.classList.add('active');
+  if (id === 'tabTokens') refreshSso();
+  if (id === 'tabFiles') refreshFiles();
+  if (id === 'tabLogView') refreshLogFiles();
+}
+
+// ── 状态轮询 ──
+function updateStatus() {
+  fetch('/api/status').then(r => r.json()).then(d => {
+    _currentStatus = d.status;
+    const badge = document.getElementById('statusBadge');
+    if (d.status === 'running') {
+      badge.className = 'badge running';
+      badge.textContent = '⬤ 运行中';
+    } else if (d.status === 'stopping') {
+      badge.className = 'badge stopping';
+      badge.textContent = '⬤ 停止中';
+    } else {
+      badge.className = 'badge idle';
+      badge.textContent = '⬤ 空闲';
+    }
+    const cur = d.current_round || 0;
+    const tot = d.total_rounds || 0;
+    document.getElementById('statRound').textContent = tot > 0 ? cur + '/' + tot : (cur || 0) + '/' + (tot || '∞');
+    document.getElementById('statOk').textContent = d.success_count || 0;
+    document.getElementById('statFail').textContent = d.fail_count || 0;
+    document.getElementById('statSso').textContent = d.sso_count || 0;
+    const pct = tot > 0 ? Math.round(cur / tot * 100) : 0;
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('btnStart').disabled = d.status !== 'idle';
+    document.getElementById('btnStop').disabled = d.status !== 'running';
+  }).catch(() => {});
+}
+
+// ── 测试 API 连接 ──
+async function pingApi() {
+  const btn = event.currentTarget;
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '检测中...';
+  try {
+    const endpoint = document.getElementById('cfg_api_endpoint').value.trim();
+    const token = document.getElementById('cfg_api_token').value.trim();
+    const r = await fetch('/api/ping', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({endpoint, token})
+    });
+    const d = await r.json();
+    toast(d.msg, d.ok ? 'ok' : 'err');
+  } catch(e) {
+    toast('请求失败: ' + e, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+}
+
+// ── SSE 实时日志 ──
+function startSSE() {
+  if (_sseSource) { _sseSource.close(); }
+  _sseSource = new EventSource('/api/log/stream');
+  _sseSource.onmessage = (e) => {
+    let line;
+    try { line = JSON.parse(e.data); } catch { line = e.data; }
+    if (!line || line === '__ping__' || line === ':ping') return;
+    appendLog(line);
+  };
+  _sseSource.onerror = () => {
+    setTimeout(startSSE, 3000);
+  };
+}
+
+function appendLog(line) {
+  const area = document.getElementById('logArea');
+  const div = document.createElement('div');
+  div.className = 'log-line';
+  const l = line.toLowerCase();
+  if (l.includes('error') || l.includes('fail') || l.includes('失败') || l.includes('错误')) div.classList.add('err');
+  else if (l.includes('warn') || l.includes('警告')) div.classList.add('warn');
+  else if (l.includes('success') || l.includes('成功') || l.includes('✓') || l.includes('[*]')) div.classList.add('ok');
+  else if (l.includes('info') || l.includes('[web]') || l.includes('[push]')) div.classList.add('info');
+  div.textContent = line;
+  area.appendChild(div);
+  _logLines++;
+  document.getElementById('logCount').textContent = _logLines + ' 行';
+  if (document.getElementById('autoScroll').checked) {
+    area.scrollTop = area.scrollHeight;
+  }
+}
+
+function clearLog() {
+  document.getElementById('logArea').innerHTML = '';
+  _logLines = 0;
+  document.getElementById('logCount').textContent = '0 行';
+}
+
+// ── 任务控制 ──
+function startTask() {
+  const count = parseInt(document.getElementById('countInput').value) || 10;
+  const extractNumbers = document.getElementById('extractNumbers').checked;
+  fetch('/api/start', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({count, extract_numbers: extractNumbers})
+  }).then(r => r.json()).then(d => {
+    if (d.ok) { toast('任务已启动，共 ' + count + ' 轮'); updateStatus(); }
+    else toast(d.msg || '启动失败', 'err');
+  }).catch(() => toast('请求失败', 'err'));
+}
+
+function stopTask() {
+  fetch('/api/stop', {method: 'POST'}).then(r => r.json()).then(d => {
+    if (d.ok) toast('停止信号已发送');
+    else toast(d.msg || '停止失败', 'err');
+  }).catch(() => toast('请求失败', 'err'));
+}
+
+// ── 配置管理 ──
+function loadConfig() {
+  fetch('/api/config').then(r => r.json()).then(cfg => {
+    document.getElementById('cfg_bearer').value = cfg.duckmail_bearer || '';
+    document.getElementById('cfg_api_base').value = cfg.duckmail_api_base || '';
+    document.getElementById('cfg_proxy').value = cfg.proxy || '';
+    document.getElementById('cfg_browser_proxy').value = cfg.browser_proxy || '';
+    document.getElementById('cfg_run_count').value = (cfg.run || {}).count ?? 10;
+    const api = cfg.api || {};
+    document.getElementById('cfg_api_endpoint').value = api.endpoint || '';
+    document.getElementById('cfg_api_token').value = api.token || '';
+    document.getElementById('cfg_api_append').value = String(api.append !== false ? 'true' : 'false');
+  }).catch(() => {});
+}
+
+function saveConfig() {
+  const cfg = {
+    duckmail_bearer: document.getElementById('cfg_bearer').value.trim(),
+    duckmail_api_base: document.getElementById('cfg_api_base').value.trim() || 'https://api.duckmail.sbs',
+    proxy: document.getElementById('cfg_proxy').value.trim(),
+    browser_proxy: document.getElementById('cfg_browser_proxy').value.trim(),
+    run: { count: parseInt(document.getElementById('cfg_run_count').value) || 10 },
+    api: {
+      endpoint: document.getElementById('cfg_api_endpoint').value.trim(),
+      token: document.getElementById('cfg_api_token').value.trim(),
+      append: document.getElementById('cfg_api_append').value === 'true'
+    }
+  };
+  fetch('/api/config', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(cfg)
+  }).then(r => r.json()).then(d => {
+    if (d.ok) toast('配置已保存');
+    else toast(d.msg || '保存失败', 'err');
+  }).catch(() => toast('请求失败', 'err'));
+}
+
+// ── SSO Token 列表 ──
+function refreshSso() {
+  fetch('/api/sso').then(r => r.json()).then(d => {
+    const list = document.getElementById('ssoList');
+    const tokens = d.tokens || [];
+    document.getElementById('ssoCount').textContent = '共 ' + tokens.length + ' 个';
+    list.innerHTML = '';
+    tokens.forEach((tok, i) => {
+      const row = document.createElement('div');
+      row.className = 'sso-item';
+      row.innerHTML = `<span class="sso-token" title="${tok}">${i+1}. ${tok}</span><button class="sso-copy" onclick="copyOne('${tok}')">复制</button>`;
+      list.appendChild(row);
+    });
+    if (tokens.length === 0) list.innerHTML = '<div style="padding:24px;color:#475569;text-align:center">暂无 SSO Token</div>';
+  }).catch(() => {});
+}
+
+function copyOne(tok) {
+  navigator.clipboard.writeText(tok).then(() => toast('已复制')).catch(() => toast('复制失败', 'err'));
+}
+
+function copyAllTokens() {
+  fetch('/api/sso').then(r => r.json()).then(d => {
+    const text = (d.tokens || []).join('\n');
+    if (!text) { toast('暂无 token', 'err'); return; }
+    navigator.clipboard.writeText(text).then(() => toast('已复制 ' + (d.tokens||[]).length + ' 个 token')).catch(() => toast('复制失败','err'));
+  });
+}
+
+function pushTokens() {
+  fetch('/api/sso/push', {method:'POST'}).then(r => r.json()).then(d => {
+    if (d.ok) toast(d.msg || '推送成功');
+    else toast(d.msg || '推送失败', 'err');
+  }).catch(() => toast('请求失败', 'err'));
+}
+
+// ── SSO 文件 ──
+let _fileListData = [];
+function refreshFiles() {
+  fetch('/api/sso/files').then(r => r.json()).then(d => {
+    _fileListData = d.files || [];
+    renderFileList();
+  }).catch(() => {});
+}
+
+function renderFileList() {
+  const el = document.getElementById('fileList');
+  document.getElementById('fileContent').style.display = 'none';
+  el.style.display = 'block';
+  el.innerHTML = '';
+  if (_fileListData.length === 0) {
+    el.innerHTML = '<div style="padding:24px;color:#475569;text-align:center">暂无 SSO 文件</div>';
+    return;
+  }
+  _fileListData.forEach(f => {
+    const row = document.createElement('div');
+    row.className = 'file-item';
+    row.innerHTML = `<div><div class="file-name">${f.name}</div><div class="file-meta">${f.lines} 行 · ${f.size}</div></div><button class="btn btn-sm btn-neutral" onclick="openFile('${f.name}')">查看</button>`;
+    el.appendChild(row);
+  });
+}
+
+function openFile(name) {
+  fetch('/api/sso/files/' + encodeURIComponent(name)).then(r => r.json()).then(d => {
+    document.getElementById('fileList').style.display = 'none';
+    document.getElementById('fileContentName').textContent = name;
+    document.getElementById('fileContentPre').textContent = d.content || '(空文件)';
+    document.getElementById('fileContent').style.display = 'flex';
+  }).catch(() => toast('读取失败', 'err'));
+}
+
+function closeFile() {
+  document.getElementById('fileContent').style.display = 'none';
+  document.getElementById('fileList').style.display = 'block';
+}
+
+function copyFileContent() {
+  const text = document.getElementById('fileContentPre').textContent;
+  navigator.clipboard.writeText(text).then(() => toast('已复制')).catch(() => toast('复制失败','err'));
+}
+
+// ── 历史日志 ──
+let _logFileListData = [];
+function refreshLogFiles() {
+  fetch('/api/log/files').then(r => r.json()).then(d => {
+    _logFileListData = d.files || [];
+    renderLogFileList();
+  }).catch(() => {});
+}
+
+function renderLogFileList() {
+  const el = document.getElementById('logFileList');
+  document.getElementById('logFileContent').style.display = 'none';
+  el.style.display = 'block';
+  el.innerHTML = '';
+  if (_logFileListData.length === 0) {
+    el.innerHTML = '<div style="padding:24px;color:#475569;text-align:center">暂无日志文件</div>';
+    return;
+  }
+  _logFileListData.forEach(f => {
+    const row = document.createElement('div');
+    row.className = 'file-item';
+    row.innerHTML = `<div><div class="file-name">${f.name}</div><div class="file-meta">${f.size}</div></div><button class="btn btn-sm btn-neutral" onclick="openLogFile('${f.name}')">查看</button>`;
+    el.appendChild(row);
+  });
+}
+
+function openLogFile(name) {
+  fetch('/api/log/files/' + encodeURIComponent(name)).then(r => r.json()).then(d => {
+    document.getElementById('logFileList').style.display = 'none';
+    document.getElementById('logFileContentName').textContent = name;
+    document.getElementById('logFileContentPre').textContent = d.content || '(空文件)';
+    document.getElementById('logFileContent').style.display = 'flex';
+  }).catch(() => toast('读取失败', 'err'));
+}
+
+function closeLogFile() {
+  document.getElementById('logFileContent').style.display = 'none';
+  document.getElementById('logFileList').style.display = 'block';
+}
+
+function copyLogContent() {
+  const text = document.getElementById('logFileContentPre').textContent;
+  navigator.clipboard.writeText(text).then(() => toast('已复制')).catch(() => toast('复制失败','err'));
+}
+
+// ── 初始化 ──
+document.addEventListener('DOMContentLoaded', () => {
+  // 初始化标签页显示
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    if (!p.classList.contains('active')) p.style.display = 'none';
+  });
+  loadConfig();
+  updateStatus();
+  startSSE();
+  setInterval(updateStatus, 3000);
+});
+</script>
+</body>
+</html>
