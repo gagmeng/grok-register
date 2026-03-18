@@ -1106,20 +1106,31 @@ def push_sso_to_api(new_tokens: list):
             get_resp = requests.get(endpoint, headers=headers, timeout=15, verify=False)
             if get_resp.status_code == 200:
                 resp_json = get_resp.json()
-                print(f"[Debug] GET 响应字段: {list(resp_json.keys())}")
-                # 兼容多种返回格式：ssoBasic / tokens / data
-                existing = (
-                    resp_json.get("ssoBasic")
-                    or resp_json.get("tokens")
+                # grok2api 返回格式: {"tokens": {token_str: obj, ...}, ...}
+                raw = (
+                    resp_json.get("tokens")
+                    or resp_json.get("ssoBasic")
                     or resp_json.get("data")
                     or []
                 )
-                existing_tokens = [
-                    item["token"] if isinstance(item, dict) and "token" in item
-                    else item.get("sso") if isinstance(item, dict) and "sso" in item
-                    else str(item)
-                    for item in existing if item
-                ]
+                if isinstance(raw, dict):
+                    # 键为 token 字符串（grok2api 实际格式）
+                    existing_tokens = [k for k in raw.keys() if k]
+                elif isinstance(raw, list):
+                    existing_tokens = []
+                    for item in raw:
+                        if not item:
+                            continue
+                        if isinstance(item, str):
+                            existing_tokens.append(item)
+                        elif isinstance(item, dict):
+                            val = (item.get("token") or item.get("sso") or "")
+                            if val:
+                                existing_tokens.append(str(val))
+                        else:
+                            existing_tokens.append(str(item))
+                else:
+                    existing_tokens = []
                 seen = set()
                 deduped = []
                 for t in existing_tokens + tokens_to_push:
