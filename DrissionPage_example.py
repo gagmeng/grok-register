@@ -1105,9 +1105,19 @@ def push_sso_to_api(new_tokens: list):
         try:
             get_resp = requests.get(endpoint, headers=headers, timeout=15, verify=False)
             if get_resp.status_code == 200:
-                existing = get_resp.json().get("ssoBasic", [])
+                resp_json = get_resp.json()
+                print(f"[Debug] GET 响应字段: {list(resp_json.keys())}")
+                # 兼容多种返回格式：ssoBasic / tokens / data
+                existing = (
+                    resp_json.get("ssoBasic")
+                    or resp_json.get("tokens")
+                    or resp_json.get("data")
+                    or []
+                )
                 existing_tokens = [
-                    item["token"] if isinstance(item, dict) else str(item)
+                    item["token"] if isinstance(item, dict) and "token" in item
+                    else item.get("sso") if isinstance(item, dict) and "sso" in item
+                    else str(item)
                     for item in existing if item
                 ]
                 seen = set()

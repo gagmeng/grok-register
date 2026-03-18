@@ -166,7 +166,7 @@ logs/
 ├── DrissionPage_example.py     # 注册主脚本
 ├── web_server.py               # Web 管理控制台后端（Flask）
 ├── email_register.py           # DuckMail 临时邮箱封装
-├── config.json                 # 配置文件（不入库）
+├── config.json                 # 配置文件（不入库，从 config.example.json 复制）
 ├── config.example.json         # 配置模板
 ├── requirements.txt            # Python 依赖
 ├── templates/
