@@ -299,8 +299,17 @@ def api_ping():
         )
         if resp.status_code == 200:
             data = resp.json()
-            raw = data.get("tokens") or data.get("ssoBasic") or []
-            count = len(raw)
+            groups = data.get("tokens") or {}
+            count = 0
+            if isinstance(groups, dict):
+                for _gname, items in groups.items():
+                    if isinstance(items, list):
+                        count += sum(1 for item in items
+                                     if isinstance(item, dict)
+                                     and (item.get("token") or "").strip()
+                                     and (item.get("token") or "").strip() != _gname)
+            elif isinstance(groups, list):
+                count = len(groups)
             return jsonify({"ok": True, "msg": f"连接成功，线上共 {count} 个 token", "status": resp.status_code})
         else:
             return jsonify({"ok": False, "msg": f"HTTP {resp.status_code}: {resp.text[:200]}"})

@@ -1106,31 +1106,31 @@ def push_sso_to_api(new_tokens: list):
             get_resp = requests.get(endpoint, headers=headers, timeout=15, verify=False)
             if get_resp.status_code == 200:
                 resp_json = get_resp.json()
-                # grok2api 返回格式: {"tokens": {token_str: obj, ...}, ...}
-                raw = (
-                    resp_json.get("tokens")
-                    or resp_json.get("ssoBasic")
-                    or resp_json.get("data")
-                    or []
-                )
-                if isinstance(raw, dict):
-                    # 键为 token 字符串（grok2api 实际格式）
-                    existing_tokens = [k for k in raw.keys() if k]
-                elif isinstance(raw, list):
-                    existing_tokens = []
-                    for item in raw:
-                        if not item:
+                # grok2api 实际返回格式:
+                # {"tokens": {"ssoBasic": [{"token": "xxx", ...}, ...], ...}}
+                # tokens 是 dict，键是分组名，值是 list of objects，每个 object 的 token 字段是实际 SSO token
+                groups = resp_json.get("tokens") or {}
+                existing_tokens = []
+                if isinstance(groups, dict):
+                    for _group_name, items in groups.items():
+                        if not isinstance(items, list):
                             continue
-                        if isinstance(item, str):
-                            existing_tokens.append(item)
-                        elif isinstance(item, dict):
-                            val = (item.get("token") or item.get("sso") or "")
+                        for item in items:
+                            if isinstance(item, dict):
+                                val = (item.get("token") or item.get("sso") or "").strip()
+                                # 过滤脏数据（分组名本身被误存为 token）
+                                if val and val != _group_name:
+                                    existing_tokens.append(val)
+                            elif isinstance(item, str) and item.strip():
+                                existing_tokens.append(item.strip())
+                elif isinstance(groups, list):
+                    for item in groups:
+                        if isinstance(item, dict):
+                            val = (item.get("token") or item.get("sso") or "").strip()
                             if val:
-                                existing_tokens.append(str(val))
-                        else:
-                            existing_tokens.append(str(item))
-                else:
-                    existing_tokens = []
+                                existing_tokens.append(val)
+                        elif isinstance(item, str) and item.strip():
+                            existing_tokens.append(item.strip())
                 seen = set()
                 deduped = []
                 for t in existing_tokens + tokens_to_push:
